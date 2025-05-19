@@ -10,6 +10,7 @@ import "react-toastify/dist/ReactToastify.css";
 // import { subscribeUser } from "./subscribe";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import Referral from "./pages/ReferalPage";
+import LocationSearchInput from "./pages/Location/LocationSearchInput";
 
 // Create theme context
 export const ThemeContext = createContext({
@@ -62,6 +63,7 @@ const App = () => {
           <Route path="/login" element={<TodoLogin />} />
           <Route path="/login/:ref" element={<TodoLogin />} />
           <Route path="/referral" element={< Referral />} />
+          <Route path="/location" element={<LocationSearchInput />} />
         </Routes>
 
         <InstallPrompt />

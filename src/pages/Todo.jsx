@@ -531,6 +531,9 @@ const navigate = useNavigate();
         <button onClick={ () => navigate('/referral')}>
           Reffer this app 
         </button>
+        <button onClick={ () => navigate('/location')}>
+          Find coords
+        </button>
 
         <div className='-mt-3'>
           <div className="relative">
