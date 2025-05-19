@@ -32,7 +32,7 @@ export function usePushNotifications() {
 
   // console.log("Modified subscription:", subscriptionData);
 
-  await fetch('http://localhost:4000/api/subscribe', {
+  await fetch('https://todo-13m8.onrender.com/api/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
