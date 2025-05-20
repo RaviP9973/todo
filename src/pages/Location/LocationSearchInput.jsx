@@ -15,7 +15,9 @@ const LocationSearchInput = () => {
       }
 
       const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+      }&libraries=places`;
       script.async = true;
       script.onload = resolve;
       document.body.appendChild(script);
@@ -39,14 +41,16 @@ const LocationSearchInput = () => {
     //   return "Unknown location";
     // }
 
-
     try {
-      
       const response = await fetch(
-         `https://todo-13m8.onrender.com/reverse-geocode?lat=${lat}&lng=${lng}`
-       );
-       const data = await response.json();
-       console.log(data);
+        `https://todo-13m8.onrender.com/reverse-geocode?lat=${lat}&lng=${lng}`
+      );
+      const data = await response.json();
+      if (data.status === "OK" && data.results.length > 0) {
+        return data.results[0].formatted_address;
+      } else {
+        return "Unknown location";
+      }
     } catch (error) {
       console.log(error);
     }
@@ -54,10 +58,13 @@ const LocationSearchInput = () => {
 
   useEffect(() => {
     loadGoogleMapsScript().then(() => {
-      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-        types: ["geocode"],
-        componentRestrictions: { country: "in" },
-      });
+      const autocomplete = new window.google.maps.places.Autocomplete(
+        inputRef.current,
+        {
+          types: ["geocode"],
+          componentRestrictions: { country: "in" },
+        }
+      );
 
       autocomplete.addListener("place_changed", () => {
         const place = autocomplete.getPlace();
@@ -93,7 +100,7 @@ const LocationSearchInput = () => {
         if (accuracy > 10) {
           setError("Location accuracy is too low (>10 meters).");
           setLocation(null);
-        //   return;
+          //   return;
         }
 
         const address = await getAddressFromLatLng(latitude, longitude);
@@ -120,7 +127,7 @@ const LocationSearchInput = () => {
   };
 
   return (
-<div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow-md ring-1 ring-gray-200">
+    <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow-md ring-1 ring-gray-200">
       <div className="relative flex items-center">
         <input
           type="text"
@@ -140,7 +147,9 @@ const LocationSearchInput = () => {
       </div>
 
       {error && (
-        <p className="mt-3 text-sm font-medium text-red-600 select-none">{error}</p>
+        <p className="mt-3 text-sm font-medium text-red-600 select-none">
+          {error}
+        </p>
       )}
 
       {location && (
@@ -149,7 +158,9 @@ const LocationSearchInput = () => {
           <p className="text-sm text-blue-800">Latitude: {location.lat}</p>
           <p className="text-sm text-blue-800">Longitude: {location.lng}</p>
           {location.accuracy && (
-            <p className="text-xs text-blue-600 mt-1">Accuracy: {location.accuracy} meters</p>
+            <p className="text-xs text-blue-600 mt-1">
+              Accuracy: {location.accuracy} meters
+            </p>
           )}
         </div>
       )}
