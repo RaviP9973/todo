@@ -4,6 +4,7 @@ import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import cors from "cors";
+import axios from "axios";
 dotenv.config();
 const app = express();
 app.use(bodyParser.json());
@@ -103,6 +104,43 @@ app.post("/webhook/task-created", async (req, res) => {
   } catch (error) {
     console.error("Error in webhook:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get('/reverse-geocode', async (req, res) => {
+  const { lat, lng } = req.query;
+
+  try {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+    const response = await axios.get(
+      `https://maps.googleapis.com/maps/api/geocode/json`,
+      {
+        params: {
+          latlng: `${lat},${lng}`,
+          key: apiKey,
+        },
+      }
+    );
+
+    res.json(response.data);
+
+  } catch (error) {
+    // 👇 Show detailed error
+    console.error("Geocoding Error:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+
+    res.status(500).json({
+      message: 'Error fetching location data',
+      error: {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      },
+    });
   }
 });
 
