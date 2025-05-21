@@ -1,25 +1,27 @@
-import { useEffect, useState, useContext } from 'react'
-import { useForm } from 'react-hook-form'
-import { supabase } from '../supabase-client'
-import { format, isToday, isTomorrow, isPast, addDays } from 'date-fns'
-import { toast } from 'react-toastify'
-import { ThemeContext } from '../App'
-import { Link, useNavigate } from 'react-router-dom'
-import ImageWithLoading from '../components/ImageLoading'
-import { IoCloseOutline } from 'react-icons/io5'
-import { LuImagePlus } from 'react-icons/lu'
+import { useEffect, useState, useContext } from "react";
+import { useForm } from "react-hook-form";
+import { supabase } from "../supabase-client";
+import { format, isToday, isTomorrow, isPast, addDays } from "date-fns";
+import { toast } from "react-toastify";
+import { ThemeContext } from "../App";
+import { Link, useNavigate } from "react-router-dom";
+import ImageWithLoading from "../components/ImageLoading";
+import { IoCloseOutline } from "react-icons/io5";
+import { LuImagePlus } from "react-icons/lu";
+import RestaurantCard from "./Resturant/ResturantCard";
+import RestaurantFilterForm from "./Resturant/RestaurantFilterForm";
 
 const Todo = () => {
-  const [tasks, setTasks] = useState([])
-  const [userId, setUserId] = useState(null)
-  const [userName, setUserName] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('all')
-  const [showForm, setShowForm] = useState(false)
+  const [tasks, setTasks] = useState([]);
+  const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("all");
+  const [showForm, setShowForm] = useState(false);
   const [taskModal, setTaskModal] = useState({ isOpen: false, task: null });
   const [hasMoreTasks, setHasMoreTasks] = useState(true);
-  const [openImage, setOpenImage] = useState(false)
-  const [createTaskLoading, setCreateTaskLoading] = useState(false)
+  const [openImage, setOpenImage] = useState(false);
+  const [createTaskLoading, setCreateTaskLoading] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState(null);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -37,32 +39,39 @@ const Todo = () => {
   // Use theme
   const { theme } = useContext(ThemeContext);
 
-  const { register, handleSubmit, reset, formState: { errors, isValid } } = useForm({
-    mode: 'onChange'
-  })
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isValid },
+  } = useForm({
+    mode: "onChange",
+  });
 
   // Get current logged-in user and fetch name
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
 
         // Fetch user's name
-        const storedName = localStorage.getItem('userName');
+        const storedName = localStorage.getItem("userName");
         if (storedName) {
           setUserName(storedName);
         } else {
           try {
             const { data: userData } = await supabase
-              .from('users')
-              .select('name')
-              .eq('user_id', user.id)
+              .from("users")
+              .select("name")
+              .eq("user_id", user.id)
               .single();
 
             if (userData && userData.name) {
               setUserName(userData.name);
-              localStorage.setItem('userName', userData.name);
+              localStorage.setItem("userName", userData.name);
             }
           } catch (error) {
             console.error("Error fetching user data:", error);
@@ -70,9 +79,9 @@ const Todo = () => {
         }
       }
       setLoading(false);
-    }
-    getUser()
-  }, [])
+    };
+    getUser();
+  }, []);
 
   // Fetch tasks
   const fetchTasks = async (page = currentPage) => {
@@ -82,7 +91,10 @@ const Todo = () => {
       setLoading(true);
     }
 
-    const { count } = await supabase.from('todo').select('*', { count: 'exact', head: true }).eq('user_id', userId)
+    const { count } = await supabase
+      .from("todo")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
 
     setTotalCount(count || 0);
     setTotalPages(Math.ceil(count / tasksPerPage) || 1);
@@ -91,20 +103,20 @@ const Todo = () => {
     const end = start + tasksPerPage - 1;
 
     const { data, error } = await supabase
-      .from('todo')
-      .select('*')
-      .eq('user_id', userId)
-      .order('due_date', { ascending: true })
-      .range(start, end)
-    if (error) console.error(error)
+      .from("todo")
+      .select("*")
+      .eq("user_id", userId)
+      .order("due_date", { ascending: true })
+      .range(start, end);
+    if (error) console.error(error);
     else {
-      setTasks(data || [])
+      setTasks(data || []);
       setHasMoreTasks(data.length === tasksPerPage);
     }
     setLoading(false);
-  }
+  };
 
-  // Pagination Function 
+  // Pagination Function
   const calculatePageNumber = (index) => {
     // For small number of pages, show all pages
     if (totalPages <= 5) {
@@ -131,27 +143,30 @@ const Todo = () => {
       return -1; // Ellipsis
     }
   };
-  // Image Upload 
+  // Image Upload
   const uploadImage = async (file) => {
-    const filePath = `${file.name}-${Date.now()}`
-    const { error } = await supabase.storage.from('tasks-images').upload(filePath, file)
+    const filePath = `${file.name}-${Date.now()}`;
+    const { error } = await supabase.storage
+      .from("tasks-images")
+      .upload(filePath, file);
 
     if (error) {
-      console.log(error)
-      return null
+      console.log(error);
+      return null;
     }
-    const { data } = supabase.storage.from('tasks-images').getPublicUrl(filePath)
-    return data.publicUrl
-  }
+    const { data } = supabase.storage
+      .from("tasks-images")
+      .getPublicUrl(filePath);
+    return data.publicUrl;
+  };
 
   // Add task
   const onSubmit = async (data) => {
-    setCreateTaskLoading(true)
+    setCreateTaskLoading(true);
     if (!userId) {
-      toast.error('Please login first!')
+      toast.error("Please login first!");
       return;
     }
-
 
     let imageUrlHere = null;
 
@@ -160,61 +175,58 @@ const Todo = () => {
       const file = data.image[0]; // Get the uploaded file
       imageUrlHere = await uploadImage(file);
       if (!imageUrlHere) {
-        toast.error('Image upload failed');
+        toast.error("Image upload failed");
         setCreateTaskLoading(false);
         return;
       }
     }
-    const { error } = await supabase.from('todo').insert([
+    const { error } = await supabase.from("todo").insert([
       {
         title: data.title,
         due_date: data.dueDate,
         user_id: userId,
         is_done: false,
         description: data.description,
-        image_url: imageUrlHere
-      }
-    ])
+        image_url: imageUrlHere,
+      },
+    ]);
 
     if (error) {
-      toast.error('Failed to add task')
-      console.error(error)
+      toast.error("Failed to add task");
+      console.error(error);
     } else {
-      toast.success('Task added successfully!')
-      setCreateTaskLoading(false)
-      setShowForm(false)
-      reset()
-      fetchTasks()
+      toast.success("Task added successfully!");
+      setCreateTaskLoading(false);
+      setShowForm(false);
+      reset();
+      fetchTasks();
     }
-  }
+  };
 
   // Mark done/undone
   const markDone = async (id, isDone) => {
     const { error } = await supabase
-      .from('todo')
+      .from("todo")
       .update({ is_done: !isDone })
-      .eq('id', id);
+      .eq("id", id);
 
     if (error) {
       console.error(error);
-      toast.error('Failed to update task');
+      toast.error("Failed to update task");
     } else {
-      toast.success('Task updated!');
+      toast.success("Task updated!");
     }
   };
 
   // Delete task
   const deleteTask = async (id) => {
-    const { error } = await supabase
-      .from('todo')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from("todo").delete().eq("id", id);
 
     if (error) {
       console.error(error);
-      toast.error('Failed to delete task');
+      toast.error("Failed to delete task");
     } else {
-      toast.success('Task deleted!');
+      toast.success("Task deleted!");
     }
   };
 
@@ -223,24 +235,29 @@ const Todo = () => {
     if (!userId) return;
 
     const channel = supabase
-      .channel('todo-changes')
+      .channel("todo-changes")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'todo', filter: `user_id=eq.${userId}` },
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "todo",
+          filter: `user_id=eq.${userId}`,
+        },
         (payload) => {
           const { eventType, new: newTask, old: oldTask } = payload;
 
           setTasks((prevTasks) => {
             switch (eventType) {
-              case 'INSERT':
+              case "INSERT":
                 showNotification(payload);
                 return [...prevTasks, newTask]; // Add the new task
-              case 'UPDATE':
-                showNotification(payload);  
+              case "UPDATE":
+                showNotification(payload);
                 return prevTasks.map((task) =>
                   task.id === newTask.id ? newTask : task
                 ); // Update the task
-              case 'DELETE':
+              case "DELETE":
                 return prevTasks.filter((task) => task.id !== oldTask.id); // Remove the deleted task
               default:
                 return prevTasks;
@@ -257,54 +274,56 @@ const Todo = () => {
   }, [userId]);
 
   const showNotification = (payload) => {
-    if (Notification.permission === 'granted') {
+    if (Notification.permission === "granted") {
       const { eventType, new: newTask, old: oldTask } = payload;
-  
-      let title = '';
-      let body = '';
-  
+
+      let title = "";
+      let body = "";
+
       switch (eventType) {
-        case 'INSERT':
-          title = 'New Task Added!';
-          body = `Task: "${newTask.title}" is due on ${new Date(newTask.due_date).toLocaleDateString()}.`;
+        case "INSERT":
+          title = "New Task Added!";
+          body = `Task: "${newTask.title}" is due on ${new Date(
+            newTask.due_date
+          ).toLocaleDateString()}.`;
           break;
-        case 'UPDATE':
-          title = 'Task Updated!';
+        case "UPDATE":
+          title = "Task Updated!";
           body = `Task: "${newTask.title}" has been updated.`;
           break;
-        case 'DELETE':
-          title = 'Task Deleted!';
+        case "DELETE":
+          title = "Task Deleted!";
           body = `Task: "${oldTask.title}" has been removed.`;
           break;
         default:
-          title = 'Task Notification';
-          body = 'A task has been updated.';
+          title = "Task Notification";
+          body = "A task has been updated.";
       }
-  
+
       // Show the notification
       new Notification(title, {
         body,
-        icon: '/icons/icon-192x192.png', // Path to your app's icon
-        badge: '/icons/icon-72x72.png', // Path to a smaller badge icon
+        icon: "/icons/icon-192x192.png", // Path to your app's icon
+        badge: "/icons/icon-72x72.png", // Path to a smaller badge icon
       });
     }
   };
-  
+
   // Request permission on app start
   useEffect(() => {
     const requestNotificationPermission = async () => {
-      if (Notification.permission !== 'granted') {
+      if (Notification.permission !== "granted") {
         await Notification.requestPermission();
       }
     };
-  
+
     requestNotificationPermission();
   }, []);
 
-  // Fetch task acc to current page 
+  // Fetch task acc to current page
   useEffect(() => {
-    if (userId) fetchTasks(currentPage)
-  }, [userId, currentPage])
+    if (userId) fetchTasks(currentPage);
+  }, [userId, currentPage]);
 
   // Handeling page change
   const handlePageChange = (newPage) => {
@@ -316,11 +335,15 @@ const Todo = () => {
   // Filter tasks based on active tab
   const getFilteredTasks = () => {
     switch (activeTab) {
-      case 'today':
-        return tasks.filter(task => isToday(new Date(task.due_date)))
-      case 'upcoming':
+      case "today":
+        return tasks.filter((task) => isToday(new Date(task.due_date)));
+      case "upcoming":
         return tasks
-          .filter(task => !isToday(new Date(task.due_date)) && !isPast(new Date(task.due_date)))
+          .filter(
+            (task) =>
+              !isToday(new Date(task.due_date)) &&
+              !isPast(new Date(task.due_date))
+          )
           .sort((a, b) => {
             // If both are completed, sort by due date
             if (a.completed && b.completed) {
@@ -334,35 +357,52 @@ const Todo = () => {
             // Both are incomplete — keep original order or sort by due date if you want
             return 0;
           });
-      case 'completed':
-        return tasks.filter(task => task.is_done)
-      case 'overdue':
-        return tasks.filter(task => isPast(new Date(task.due_date)) && !task.is_done && !isToday(new Date(task.due_date)))
+      case "completed":
+        return tasks.filter((task) => task.is_done);
+      case "overdue":
+        return tasks.filter(
+          (task) =>
+            isPast(new Date(task.due_date)) &&
+            !task.is_done &&
+            !isToday(new Date(task.due_date))
+        );
       default:
-        return tasks
+        return tasks;
     }
-  }
+  };
 
-
-  // Fetching total task with respect to filters for pagination 
+  // Fetching total task with respect to filters for pagination
   useEffect(() => {
     const fetchFilteredTasksCount = async () => {
       if (!userId) return;
 
-      let query = supabase.from('todo').select('*', { count: 'exact', head: true }).eq('user_id', userId);
+      let query = supabase
+        .from("todo")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId);
 
       switch (activeTab) {
-        case 'today':
-          query = query.filter('due_date', 'eq', format(new Date(), 'yyyy-MM-dd'));
+        case "today":
+          query = query.filter(
+            "due_date",
+            "eq",
+            format(new Date(), "yyyy-MM-dd")
+          );
           break;
-        case 'upcoming':
-          query = query.filter('due_date', 'gt', format(new Date(), 'yyyy-MM-dd'));
+        case "upcoming":
+          query = query.filter(
+            "due_date",
+            "gt",
+            format(new Date(), "yyyy-MM-dd")
+          );
           break;
-        case 'completed':
-          query = query.filter('is_done', 'eq', true);
+        case "completed":
+          query = query.filter("is_done", "eq", true);
           break;
-        case 'overdue':
-          query = query.filter('due_date', 'lt', format(new Date(), 'yyyy-MM-dd')).filter('is_done', 'eq', false);
+        case "overdue":
+          query = query
+            .filter("due_date", "lt", format(new Date(), "yyyy-MM-dd"))
+            .filter("is_done", "eq", false);
           break;
         default:
           break;
@@ -372,7 +412,7 @@ const Todo = () => {
       const { count, error } = await query;
 
       if (error) {
-        console.error('Error fetching filtered tasks count:', error);
+        console.error("Error fetching filtered tasks count:", error);
         return;
       }
 
@@ -387,31 +427,31 @@ const Todo = () => {
     fetchFilteredTasksCount();
   }, [activeTab, userId]);
 
-  const filteredTasks = getFilteredTasks()
+  const filteredTasks = getFilteredTasks();
 
   // Group by date
   const groupedTasks = filteredTasks.reduce((acc, task) => {
-    const dateKey = format(new Date(task.due_date), 'yyyy-MM-dd')
-    if (!acc[dateKey]) acc[dateKey] = []
-    acc[dateKey].push(task)
-    return acc
-  }, {})
+    const dateKey = format(new Date(task.due_date), "yyyy-MM-dd");
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(task);
+    return acc;
+  }, {});
 
   // Format date for display
   const formatDateHeader = (dateString) => {
-    const date = new Date(dateString)
-    if (isToday(date)) return '🌟 Today'
-    if (isTomorrow(date)) return '🌅 Tomorrow'
-    if (isPast(date)) return '⚠️ Overdue - ' + format(date, 'MMM d, yyyy')
+    const date = new Date(dateString);
+    if (isToday(date)) return "🌟 Today";
+    if (isTomorrow(date)) return "🌅 Tomorrow";
+    if (isPast(date)) return "⚠️ Overdue - " + format(date, "MMM d, yyyy");
 
     // Check if it's within the next 7 days
-    const now = new Date()
-    const weekFromNow = addDays(now, 7)
+    const now = new Date();
+    const weekFromNow = addDays(now, 7);
     if (date <= weekFromNow) {
-      return '📅 ' + format(date, 'EEEE - MMM d')
+      return "📅 " + format(date, "EEEE - MMM d");
     }
-    return '🗓️ ' + format(date, 'MMM d, yyyy')
-  }
+    return "🗓️ " + format(date, "MMM d, yyyy");
+  };
 
   // Loading skeleton
   // if (loading) {
@@ -423,175 +463,193 @@ const Todo = () => {
   //   )
   // }
 
-//   const [lat,setLat] = useState(null);
-//   const [lng,setLng] = useState(null);
-// useEffect(() => {
-//   if (!navigator.geolocation) return;
-
-//   const watchId = navigator.geolocation.watchPosition(
-//     (position) => {
-//       console.log("accuracy", position.coords.accuracy)
-//       setLat(position.coords.latitude);
-//       setLng(position.coords.longitude);
-//       console.log('Updated Location:', position.coords.latitude, position.coords.longitude);
-//     },
-//     (error) => {
-//       console.error('Location watch error:', error.message);
-//     },
-//     {
-//       enableHighAccuracy: true,
-//       timeout: 10000,
-//       maximumAge: 0,
-//     }
-//   );
-
-//   return () => navigator.geolocation.clearWatch(watchId); // cleanup on unmount or userId change
-// }, [userId]);
-
-  // const [restaurants,setRestaurants] = useState (null);
-  
-  // const getNearByRestaurents = async() => {
-  //   const { data, error } = await supabase.rpc('get_nearby_restaurants', {
-  //     p_lat: lat,
-  //     p_lng: lng,
-  //     p_radius_m: 400000
-  //   });
-
-  //   setRestaurants(data);
-  //   console.log("data",data);
-  //   console.log("error",error);
-  // }
-
-//   const insertNewResturants = async () => {
-//     const lat = 25.5949;
-//     const lng = 85.0049;
-//     const {data,error} = await supabase.from('restaurants').insert([
-//       {
-//         name: "Burger Hut",
-//         lat: 25.5949,
-//         lng: 85.0049,
-//         location: `SRID=4326;POINT(${lng} ${lat})`, 
-//         }
-//     ])
-
-//     console.log("data",data)
-//     console.log("error",error)
-//   }
-
-//   async function getRestaurantsByFoodType(Food_Type) {
-//   const { data, error } = await supabase
-//     .from('restaurants')
-//     .select('*')
-//     .contains('food_type', [Food_Type]);  // Match food_type array containing this item
-
-//     if (error) {
-//     console.error('Error fetching restaurants:', error.message);
-//     return [];
-//   }
-
-//   console.log(data);
-//   console.log(error)
-
-//   return data;
-// }
 
 
-//   const filterResutaurantWithRating = async(minRating) => {
-//     const { data, error } = await supabase.from('restaurants')
-//     .select('*')
-//     .gte('rating',minRating);
-//     console.log(data);
-//   }
+  /* ****************************** Location query ************************************/
+  const [location,setLocation] = useState(null);
+  const [restaurants, setRestaurants ] = useState(null);
 
-//   const getRestaurantsByPrice = async (minPrice, maxPrice) =>{
-//     const { data, error } = await supabase .from('restaurants')
-//     .select('*')
-//     .gte('average_price', minPrice)
-//     .lte('average_price', maxPrice);
-//     console.log(data);
-//     console.log("error");
-//   };
+// calling supabse rpc function for filtering restaurants
+   const filterRestaurants = async ({
+    lat,
+    lng,
+    radius_m = 5000,
+    minRating = null,
+    minPrice = null,
+    maxPrice = null,
+    cuisineTypes = null,
+    foodType = null,
+    limit = 50,
+  }) => {
+    const { data, error } = await supabase.rpc("filter_restaurants", {
+      p_lat: lat,
+      p_lng: lng,
+      p_radius_m: radius_m,
+      p_min_rating: minRating,
+      p_min_price: minPrice,
+      p_max_price: maxPrice,
+      p_cuisine_types: cuisineTypes, // Array like ['Indian', 'Italian']
+      p_food_type: foodType, // Array like ['Vegetarian']
+      p_limit: limit,
+    });
 
-const navigate = useNavigate();
+    console.log("data",data);
 
+    // setRestaurants(data);
+
+    if (error) {
+      console.error("Error fetching filtered restaurants:", error.message);
+      return { data: [], error };
+    }
+
+    return { data, error: null };
+  };
+
+
+  // get current location
+  //  useEffect(() => {
+  //   navigator.geolocation.getCurrentPosition(
+  //     (position) => {
+  //       const { latitude, longitude } = position.coords;
+  //       setLocation({ latitude, longitude });
+  //     },
+  //     (error) => {
+  //       console.error("Geolocation error:", error);
+  //     }
+  //   );
+  // }, []);
+
+
+  // handle filter functions 
+  const handleFilter = async (filters) => {
+    if (!location) {
+      alert("Location not available.");
+      return;
+    }
+
+    const { data, error } = await filterRestaurants({
+      lat: location.lat,
+      lng: location.lng,
+      ...filters,
+    });
+
+    if (error) {
+      console.error("Filter error:", error.message);
+    } else {
+      setRestaurants(data);
+    }
+  };
+
+
+  const navigate = useNavigate();
   return (
     <div className="max-w-4xl mx-auto p-2 lg:p-4">
       {/* Header */}
-      <header className={`flex items-center justify-between mb-4 lg:mb-8 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+      <header
+        className={`flex items-center justify-between mb-4 lg:mb-8 ${
+          theme === "dark" ? "text-white" : "text-gray-800"
+        }`}
+      >
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">{userName || "TaskMaster"}</h1>
-          <p className="text-xs md:text-sm opacity-70">Organize your day with stylesss</p>
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {userName || "TaskMaster"}
+          </h1>
+          <p className="text-xs md:text-sm opacity-70">
+            Organize your day with stylesss
+          </p>
         </div>
 
+        <form>
+          <input type="text" />
+        </form>
 
-       {/* <button onClick={getNearByRestaurents}>Get Resturants</button>  */}
         {/* <button onClick={insertNewResturants}>Insert Resturants</button> */}
         {/* <button onClick={() => getRestaurantsByFoodType("veg")}>rating Resturants</button> */}
-        
-        <button onClick={ () => navigate('/referral')}>
-          Reffer this app 
-        </button>
-        <button onClick={ () => navigate('/location')}>
-          Find coords
-        </button>
 
-        <div className='-mt-3'>
+        <button onClick={() => navigate("/referral")}>Reffer this app</button>
+        <button onClick={() => navigate("/location")}>Find coords</button>
+
+        <div className="-mt-3">
           <div className="relative">
             <button
               onClick={() => setShowForm(!showForm)}
               disabled={!userId}
               className={`flex items-center px-3 md:px-4 py-1 md:py-2 rounded-full font-medium transition-all 
-              ${!userId
-                  ? 'bg-gray-300 cursor-not-allowed'
+              ${
+                !userId
+                  ? "bg-gray-300 cursor-not-allowed"
                   : showForm
-                    ? (theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-800')
-                    : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl cursor-pointer'}`}
+                  ? theme === "dark"
+                    ? "bg-gray-700 text-gray-300"
+                    : "bg-gray-200 text-gray-800"
+                  : "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl cursor-pointer"
+              }`}
               title={!userId ? "Please login first" : ""}
             >
-              {showForm ? 'Cancel' : '+ New Task'}
+              {showForm ? "Cancel" : "+ New Task"}
             </button>
             {!userId && (
-              <span className="absolute -bottom-3.5 left-4 text-[10px] text-red-500">Login to add tasks</span>
+              <span className="absolute -bottom-3.5 left-4 text-[10px] text-red-500">
+                Login to add tasks
+              </span>
             )}
           </div>
         </div>
       </header>
 
       {/* Add Task Form */}
+
+      <RestaurantFilterForm onFilter={handleFilter} setLocation={setLocation} location={location}/>
+
       <div
-        className={`overflow-hidden transition-all duration-800 ease-in-out addNewTaskModal ${showForm ? "max-h-[650px] opacity-100" : "max-h-0 opacity-0"
-          }`}
+        className={`overflow-hidden transition-all duration-800 ease-in-out addNewTaskModal ${
+          showForm ? "max-h-[650px] opacity-100" : "max-h-0 opacity-0"
+        }`}
       >
         <div
-          className={`mb-8 p-6 rounded-lg shadow-lg animate-fadeIn ${theme === "dark" ? "bg-gray-800" : "bg-white"
-            }`}
+          className={`mb-8 p-6 rounded-lg shadow-lg animate-fadeIn ${
+            theme === "dark" ? "bg-gray-800" : "bg-white"
+          }`}
         >
-          <div className='flex items-center justify-between mb-4'>
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold ">Create New Task</h2>
             <button
               onClick={() => setShowForm(false)}
-              className='bg-gray-200 p-2 hover:bg-gray-300 cursor-pointer rounded-full hover:shadow-md transition-all duration-300'
+              className="bg-gray-200 p-2 hover:bg-gray-300 cursor-pointer rounded-full hover:shadow-md transition-all duration-300"
             >
               <IoCloseOutline />
             </button>
           </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 md:space-y-4">
-
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-2 md:space-y-4"
+          >
             {/* Title  */}
             <div>
               <label
-                className={`block mb-1 text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}
+                className={`block mb-1 text-sm ${
+                  theme === "dark" ? "text-gray-300" : "text-gray-600"
+                }`}
               >
                 Title
               </label>
               <textarea
                 placeholder="Task title"
-                className={`w-full p-3 h-[50px] rounded-lg border resize-none ${theme === "dark"
-                  ? "bg-gray-700 border-gray-600 text-white"
-                  : "bg-gray-50 border-gray-200"
-                  }`}
-                {...register("title", { required: true, minLength: { value: 3, message: 'Title must be at least 3 characters' }, validate: (value) => value.trim() !== "" || "Title cannot be empty or spaces only" })}
-
+                className={`w-full p-3 h-[50px] rounded-lg border resize-none ${
+                  theme === "dark"
+                    ? "bg-gray-700 border-gray-600 text-white"
+                    : "bg-gray-50 border-gray-200"
+                }`}
+                {...register("title", {
+                  required: true,
+                  minLength: {
+                    value: 3,
+                    message: "Title must be at least 3 characters",
+                  },
+                  validate: (value) =>
+                    value.trim() !== "" ||
+                    "Title cannot be empty or spaces only",
+                })}
               />
               {errors.title && (
                 <span className="text-red-500 text-sm">
@@ -603,17 +661,29 @@ const navigate = useNavigate();
             {/* Description  */}
             <div>
               <label
-                className={`block mb-1 text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}
+                className={`block mb-1 text-sm ${
+                  theme === "dark" ? "text-gray-300" : "text-gray-600"
+                }`}
               >
                 Description
               </label>
               <textarea
                 placeholder="Task description"
-                className={`w-full p-3 h-24 md:h-32 rounded-lg border resize-none ${theme === "dark"
-                  ? "bg-gray-700 border-gray-600 text-white"
-                  : "bg-gray-50 border-gray-200"
-                  }`}
-                {...register("description", { required: true, minLength: { value: 3, message: 'Description must be at least 3 characters' }, validate: (value) => value.trim() !== "" || "Description cannot be empty or spaces only" })}
+                className={`w-full p-3 h-24 md:h-32 rounded-lg border resize-none ${
+                  theme === "dark"
+                    ? "bg-gray-700 border-gray-600 text-white"
+                    : "bg-gray-50 border-gray-200"
+                }`}
+                {...register("description", {
+                  required: true,
+                  minLength: {
+                    value: 3,
+                    message: "Description must be at least 3 characters",
+                  },
+                  validate: (value) =>
+                    value.trim() !== "" ||
+                    "Description cannot be empty or spaces only",
+                })}
               />
               {errors.description && (
                 <span className="text-red-500 text-sm">
@@ -622,20 +692,22 @@ const navigate = useNavigate();
               )}
             </div>
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-
               {/* Due Date upload button */}
               <div className="flex-1 w-full">
                 <label
-                  className={`block mb-1 text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}
+                  className={`block mb-1 text-sm ${
+                    theme === "dark" ? "text-gray-300" : "text-gray-600"
+                  }`}
                 >
                   Due Date
                 </label>
                 <input
                   type="date"
-                  className={`w-full p-3 rounded-lg border cursor-pointer ${theme === "dark"
-                    ? "bg-gray-700 border-gray-600 text-white"
-                    : "bg-gray-50 border-gray-200"
-                    }`}
+                  className={`w-full p-3 rounded-lg border cursor-pointer ${
+                    theme === "dark"
+                      ? "bg-gray-700 border-gray-600 text-white"
+                      : "bg-gray-50 border-gray-200"
+                  }`}
                   {...register("dueDate", { required: true })}
                   min={format(new Date(), "yyyy-MM-dd")}
                   onClick={(e) => e.target.showPicker()}
@@ -650,7 +722,9 @@ const navigate = useNavigate();
               {/* Image upload button */}
               <div className="flex-1 w-full">
                 <label
-                  className={`block mb-1 text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}
+                  className={`block mb-1 text-sm ${
+                    theme === "dark" ? "text-gray-300" : "text-gray-600"
+                  }`}
                 >
                   Upload Image
                 </label>
@@ -674,23 +748,43 @@ const navigate = useNavigate();
                   <label
                     htmlFor="imageUpload"
                     className={`group relative flex flex-col items-start justify-center h-[50px] w-full p-3 rounded-lg border-2 border-dashed cursor-pointer transition-all duration-300 overflow-hidden
-        ${selectedFileName
-                        ? (theme === "dark" ? "border-blue-500 bg-blue-900/20" : "border-blue-500 bg-blue-50")
-                        : (theme === "dark" ? "border-gray-600 hover:border-blue-500 bg-gray-800 hover:bg-gray-700" : "border-gray-300 hover:border-blue-500 bg-gray-50 hover:bg-blue-50")}
+        ${
+          selectedFileName
+            ? theme === "dark"
+              ? "border-blue-500 bg-blue-900/20"
+              : "border-blue-500 bg-blue-50"
+            : theme === "dark"
+            ? "border-gray-600 hover:border-blue-500 bg-gray-800 hover:bg-gray-700"
+            : "border-gray-300 hover:border-blue-500 bg-gray-50 hover:bg-blue-50"
+        }
       `}
                   >
                     {/* Background Animation Element */}
-                    <div className={`absolute inset-0 bg-gradient-to-r ${theme === "dark" ? "from-blue-900/30 to-purple-900/30" : "from-blue-100/50 to-purple-100/50"} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-r ${
+                        theme === "dark"
+                          ? "from-blue-900/30 to-purple-900/30"
+                          : "from-blue-100/50 to-purple-100/50"
+                      } opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+                    ></div>
 
                     {/* Upload Text or Filename with Icon */}
                     <div className="flex items-center justify-center gap-2 relative z-10">
-                      <LuImagePlus className={`text-lg ${theme === "dark" ? "text-gray-300" : "text-gray-500"}`} />
+                      <LuImagePlus
+                        className={`text-lg ${
+                          theme === "dark" ? "text-gray-300" : "text-gray-500"
+                        }`}
+                      />
                       {selectedFileName ? (
                         <span className="font-medium truncate max-w-[120px] text-sm overflow-hidden text-ellipsis whitespace-nowrap">
                           {selectedFileName}
                         </span>
                       ) : (
-                        <span className={`text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
+                        <span
+                          className={`text-sm ${
+                            theme === "dark" ? "text-gray-300" : "text-gray-600"
+                          }`}
+                        >
                           Select image
                         </span>
                       )}
@@ -709,14 +803,15 @@ const navigate = useNavigate();
                 <button
                   type="submit"
                   disabled={!isValid}
-                  className={`w-full md:w-auto px-6 py-3 text-sm md:text-base rounded-lg text-white font-medium transition-all ${!isValid
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : createTaskLoading
+                  className={`w-full md:w-auto px-6 py-3 text-sm md:text-base rounded-lg text-white font-medium transition-all ${
+                    !isValid
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : createTaskLoading
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg"
-                    }`}
+                  }`}
                 >
-                  {createTaskLoading ? 'Creating...' : 'Create Task'}
+                  {createTaskLoading ? "Creating..." : "Create Task"}
                 </button>
               </div>
             </div>
@@ -726,18 +821,20 @@ const navigate = useNavigate();
 
       {/* Task Filters */}
       <div className="flex task-filters  mb-8 pb-2 sticky top-16 z-10">
-        {['all', 'today', 'upcoming', 'completed', 'overdue'].map((tab) => (
+        {["all", "today", "upcoming", "completed", "overdue"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 mx-1 rounded-full whitespace-nowrap font-medium transition-all
-              ${activeTab === tab
-                ? (theme === 'dark'
-                  ? 'bg-blue-700 text-white'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md')
-                : (theme === 'dark'
-                  ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 shadow-sm')}`}
+              ${
+                activeTab === tab
+                  ? theme === "dark"
+                    ? "bg-blue-700 text-white"
+                    : "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md"
+                  : theme === "dark"
+                  ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  : "bg-white text-gray-600 hover:bg-gray-100 shadow-sm"
+              }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -753,13 +850,21 @@ const navigate = useNavigate();
           </div>
         ) : userId ? (
           Object.entries(groupedTasks).length === 0 ? (
-            <div className={`text-center py-16 rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md`}>
+            <div
+              className={`text-center py-16 rounded-lg ${
+                theme === "dark" ? "bg-gray-800" : "bg-white"
+              } shadow-md`}
+            >
               <div className="text-6xl mb-4">✨</div>
               <h3 className="text-xl font-medium mb-2">No tasks yet</h3>
-              <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                {activeTab !== 'all'
+              <p
+                className={`${
+                  theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                {activeTab !== "all"
                   ? `You don't have any ${activeTab} tasks`
-                  : 'Your task list is empty. Create your first task!'}
+                  : "Your task list is empty. Create your first task!"}
               </p>
               {!showForm && (
                 <button
@@ -773,7 +878,11 @@ const navigate = useNavigate();
           ) : (
             Object.entries(groupedTasks).map(([date, dateTasks]) => (
               <div key={date} className="animate-fadeIn">
-                <h2 className={`font-semibold text-lg mb-3 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'}`}>
+                <h2
+                  className={`font-semibold text-lg mb-3 ${
+                    theme === "dark" ? "text-gray-200" : "text-gray-800"
+                  }`}
+                >
                   {formatDateHeader(date)}
                 </h2>
                 <div className="space-y-3">
@@ -781,27 +890,45 @@ const navigate = useNavigate();
                     <div
                       key={task.id}
                       className={`flex items-center gap-3 p-4 rounded-lg shadow-sm transition-all cursor-pointer
-                 ${task.is_done
-                          ? (theme === 'dark' ? 'opacity-60 bg-gray-800' : 'opacity-75 bg-gray-50')
-                          : (theme === 'dark' ? 'bg-gray-800' : 'bg-white hover:shadow-md')}
-                 border-l-4 ${theme === 'dark' ? 'border-blue-700' : 'border-blue-500'}`}
+                 ${
+                   task.is_done
+                     ? theme === "dark"
+                       ? "opacity-60 bg-gray-800"
+                       : "opacity-75 bg-gray-50"
+                     : theme === "dark"
+                     ? "bg-gray-800"
+                     : "bg-white hover:shadow-md"
+                 }
+                 border-l-4 ${
+                   theme === "dark" ? "border-blue-700" : "border-blue-500"
+                 }`}
                       onClick={() => openTaskModal(task)}
                     >
                       <div
                         className={`w-6 h-6 rounded-full flex items-center justify-center cursor-pointer
-                   ${task.is_done
-                            ? (theme === 'dark' ? 'bg-blue-700 text-white' : 'bg-blue-500 text-white')
-                            : (theme === 'dark' ? 'border-2 border-gray-600' : 'border-2 border-gray-300')}`}
+                   ${
+                     task.is_done
+                       ? theme === "dark"
+                         ? "bg-blue-700 text-white"
+                         : "bg-blue-500 text-white"
+                       : theme === "dark"
+                       ? "border-2 border-gray-600"
+                       : "border-2 border-gray-300"
+                   }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           markDone(task.id, task.is_done);
                         }}
                       >
-                        {task.is_done && '✓'}
+                        {task.is_done && "✓"}
                       </div>
 
                       <div className="flex-1 overflow-hidden">
-                        <h3 className={`font-medium truncate ${task.is_done ? 'line-through opacity-70' : ''}`}>
+                        <h3
+                          className={`font-medium truncate ${
+                            task.is_done ? "line-through opacity-70" : ""
+                          }`}
+                        >
                           {task.title}
                         </h3>
                       </div>
@@ -812,7 +939,11 @@ const navigate = useNavigate();
                           deleteTask(task.id);
                         }}
                         className={`p-2 rounded-full hover:bg-red-100 transition-colors
-                   ${theme === 'dark' ? 'text-red-400 hover:text-red-600' : 'text-red-500 hover:text-red-700'}`}
+                   ${
+                     theme === "dark"
+                       ? "text-red-400 hover:text-red-600"
+                       : "text-red-500 hover:text-red-700"
+                   }`}
                       >
                         🗑️
                       </button>
@@ -823,13 +954,24 @@ const navigate = useNavigate();
             ))
           )
         ) : (
-          <div className={`text-center p-8 rounded-lg shadow-md ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+          <div
+            className={`text-center p-8 rounded-lg shadow-md ${
+              theme === "dark" ? "bg-gray-800" : "bg-white"
+            }`}
+          >
             <div className="text-4xl mb-4">🔒</div>
             <h3 className="text-xl font-medium mb-2">Please Login</h3>
-            <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-4`}>
+            <p
+              className={`${
+                theme === "dark" ? "text-gray-400" : "text-gray-500"
+              } mb-4`}
+            >
               You need to login to manage your tasks
             </p>
-            <Link to={'/login'} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+            <Link
+              to={"/login"}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
               Login
             </Link>
           </div>
@@ -844,80 +986,106 @@ const navigate = useNavigate();
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className={`flex items-center pr-3 pl-1 py-2 rounded-md ${currentPage === 1
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : theme === 'dark'
-                  ? 'bg-gray-700 text-white hover:bg-gray-600'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
-                } transition-colors`}
+              className={`flex items-center pr-3 pl-1 py-2 rounded-md ${
+                currentPage === 1
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : theme === "dark"
+                  ? "bg-gray-700 text-white hover:bg-gray-600"
+                  : "bg-gradient-to-r from-blue-500 to-purple-600 text-white"
+              } transition-colors`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span className="ml-1">Previous</span>
             </button>
 
             {/* Page Numbers */}
             <div className="flex items-center space-x-1">
-              {Array.from({ length: Math.min(5, Math.max(totalPages, 1)) }).map((_, index) => {
-                const pageNumber = calculatePageNumber(index);
-                if (pageNumber === -1) {
-                  // Render ellipsis
+              {Array.from({ length: Math.min(5, Math.max(totalPages, 1)) }).map(
+                (_, index) => {
+                  const pageNumber = calculatePageNumber(index);
+                  if (pageNumber === -1) {
+                    // Render ellipsis
+                    return (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className={`px-3 py-2 ${
+                          theme === "dark" ? "text-gray-300" : "text-gray-700"
+                        }`}
+                      >
+                        ...
+                      </span>
+                    );
+                  }
                   return (
-                    <span
-                      key={`ellipsis-${index}`}
-                      className={`px-3 py-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}
+                    <button
+                      key={pageNumber}
+                      onClick={() => handlePageChange(pageNumber)}
+                      className={`w-9 h-10 p-2 rounded-md ${
+                        currentPage === pageNumber
+                          ? theme === "dark"
+                            ? "bg-blue-700 text-white"
+                            : "bg-gradient-to-r from-blue-500 to-purple-600 text-white"
+                          : theme === "dark"
+                          ? "bg-gray-700 text-white hover:bg-gray-600"
+                          : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
+                      } transition-colors`}
                     >
-                      ...
-                    </span>
+                      {pageNumber}
+                    </button>
                   );
                 }
-                return (
-                  <button
-                    key={pageNumber}
-                    onClick={() => handlePageChange(pageNumber)}
-                    className={`w-9 h-10 p-2 rounded-md ${currentPage === pageNumber
-                      ? theme === 'dark'
-                        ? 'bg-blue-700 text-white'
-                        : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
-                      : theme === 'dark'
-                        ? 'bg-gray-700 text-white hover:bg-gray-600'
-                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                      } transition-colors`}
-                  >
-                    {pageNumber}
-                  </button>
-                );
-              })}
+              )}
             </div>
 
             {/* Next Button */}
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={!hasMoreTasks || currentPage === totalPages}
-              className={`flex items-center pl-3 pr-1 py-2 rounded-md ${!hasMoreTasks || currentPage === totalPages
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : theme === 'dark'
-                  ? 'bg-gray-700 text-white hover:bg-gray-600'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
-                } transition-colors`}
+              className={`flex items-center pl-3 pr-1 py-2 rounded-md ${
+                !hasMoreTasks || currentPage === totalPages
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : theme === "dark"
+                  ? "bg-gray-700 text-white hover:bg-gray-600"
+                  : "bg-gradient-to-r from-blue-500 to-purple-600 text-white"
+              } transition-colors`}
             >
               <span className="mr-1">Next</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
             </button>
           </nav>
         </div>
       )}
 
-
       {/* Task Modal */}
       {taskModal.isOpen && taskModal.task && (
         <div className="fixed inset-0 backdrop-blur-2xl bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div
             className={`w-full max-w-lg rounded-lg shadow-xl p-6 max-h-[80vh] overflow-y-auto
-        ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}
+        ${
+          theme === "dark" ? "bg-gray-800 text-white" : "bg-white text-gray-800"
+        }`}
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Task Details</h3>
@@ -929,30 +1097,57 @@ const navigate = useNavigate();
               </button>
             </div>
 
-            <div className='flex flex-col md:flex-row item-start md:items-center justify-between'>
+            <div className="flex flex-col md:flex-row item-start md:items-center justify-between">
               <div>
                 <div className="mb-4">
-                  <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Due date:</span>
-                  <p className="font-medium">{format(new Date(taskModal.task.due_date), 'PPP')}</p>
+                  <span
+                    className={`text-sm ${
+                      theme === "dark" ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    Due date:
+                  </span>
+                  <p className="font-medium">
+                    {format(new Date(taskModal.task.due_date), "PPP")}
+                  </p>
                 </div>
 
                 <div className="mb-4">
-                  <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Task:</span>
-                  <p className="font-medium text-lg mt-1">{taskModal.task.title}</p>
+                  <span
+                    className={`text-sm ${
+                      theme === "dark" ? "text-gray-400" : "text-gray-500"
+                    }`}
+                  >
+                    Task:
+                  </span>
+                  <p className="font-medium text-lg mt-1">
+                    {taskModal.task.title}
+                  </p>
                 </div>
               </div>
 
               {/* Image  */}
               {taskModal.task.image_url && (
-                <div className='w-full md:w-[50%] rounded-md overflow-hidden' onClick={() => setOpenImage(true)}>
+                <div
+                  className="w-full md:w-[50%] rounded-md overflow-hidden"
+                  onClick={() => setOpenImage(true)}
+                >
                   <ImageWithLoading imageUrl={taskModal.task.image_url} />
                 </div>
               )}
             </div>
 
-            <div className='w-[90%] mt-4 md:mt-0'>
-              <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Description:</span>
-              <p className="font-normal md:font-medium text-sm md:text-lg mt-1 break-words whitespace-pre-wrap">{taskModal.task.description}</p>
+            <div className="w-[90%] mt-4 md:mt-0">
+              <span
+                className={`text-sm ${
+                  theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                Description:
+              </span>
+              <p className="font-normal md:font-medium text-sm md:text-lg mt-1 break-words whitespace-pre-wrap">
+                {taskModal.task.description}
+              </p>
             </div>
             <div className="mt-6 flex justify-end space-x-3">
               <button
@@ -961,9 +1156,13 @@ const navigate = useNavigate();
                   closeTaskModal();
                 }}
                 className={`px-4 py-2 rounded-lg font-medium
-            ${theme === 'dark' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+            ${
+              theme === "dark"
+                ? "bg-blue-700 hover:bg-blue-800"
+                : "bg-blue-600 hover:bg-blue-700"
+            } text-white`}
               >
-                Mark as {taskModal.task.is_done ? 'Undone' : 'Done'}
+                Mark as {taskModal.task.is_done ? "Undone" : "Done"}
               </button>
 
               <button
@@ -972,7 +1171,11 @@ const navigate = useNavigate();
                   closeTaskModal();
                 }}
                 className={`px-4 py-2 rounded-lg font-medium
-            ${theme === 'dark' ? 'bg-red-700 hover:bg-red-800' : 'bg-red-600 hover:bg-red-700'} text-white`}
+            ${
+              theme === "dark"
+                ? "bg-red-700 hover:bg-red-800"
+                : "bg-red-600 hover:bg-red-700"
+            } text-white`}
               >
                 Delete
               </button>
@@ -1003,17 +1206,14 @@ const navigate = useNavigate();
           </div>
         </div>
       )}
+      
 
-       {/* {restaurants && restaurants.map((res) => (
-          <div key={res.id} style={{ border: '1px solid #ccc', padding: '12px', marginBottom: '10px', borderRadius: '8px' }}>
-            <h3 style={{ margin: 0 }}>{res.name}</h3>
-            <p style={{ margin: '4px 0', color: '#555' }}>
-              Distance: {res.distance_km?.toFixed(2)} km
-            </p>
-          </div>
-        ))}  */}
+      {restaurants &&
+        restaurants.map((res) => (
+          <RestaurantCard restaurant={res} key={res.id} />
+        ))}
     </div>
-  )
-}
+  );
+};
 
-export default Todo
+export default Todo;

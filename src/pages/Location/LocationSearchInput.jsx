@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { FaLocationDot } from "react-icons/fa6";
-
-const LocationSearchInput = () => {
+import { IoSearch } from "react-icons/io5";
+const LocationSearchInput = ({setLocation,location}) => {
   const inputRef = useRef(null);
-  const [location, setLocation] = useState(null);
+  // const [location, setLocation] = useState(null);
   const [error, setError] = useState("");
-
   // Load Google Maps + Places script
   const loadGoogleMapsScript = () => {
     return new Promise((resolve) => {
@@ -26,28 +25,22 @@ const LocationSearchInput = () => {
 
   // Reverse Geocode: get formatted address from lat/lng using Google Maps Geocoding API
   const getAddressFromLatLng = async (lat, lng) => {
-    // try {
-    //   const response = await fetch(
-    //     `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
-    //   );
-    //   const data = await response.json();
-    //   if (data.status === "OK" && data.results.length > 0) {
-    //     return data.results[0].formatted_address;
-    //   } else {
-    //     return "Unknown location";
-    //   }
-    // } catch (error) {
-    //   console.error("Reverse geocoding failed:", error);
-    //   return "Unknown location";
-    // }
-
     try {
       const response = await fetch(
-        `https://todo-13m8.onrender.com/reverse-geocode?lat=${lat}&lng=${lng}`
+        `${import.meta.env.VITE_BACKEND_URL}/reverse-geocode?lat=${lat}&lng=${lng}`
       );
       const data = await response.json();
+      // console.log(data);
       if (data.status === "OK" && data.results.length > 0) {
-        return data.results[0].formatted_address;
+        const areaName = data.results[0].address_components.find(
+          (component) =>
+            component.types.includes("sublocality") ||
+            component.types.includes("sublocality_level_1")
+        )?.long_name;
+        // setAreaName(areaName);
+        // console.log(areaName);
+        // return data.results[0].formatted_address;
+        return data;
       } else {
         return "Unknown location";
       }
@@ -75,12 +68,18 @@ const LocationSearchInput = () => {
 
         const lat = place.geometry.location.lat();
         const lng = place.geometry.location.lng();
-
+        console.log("place", place);
+         const areaName = place.address_components.find(
+          (component) =>
+            component.types.includes("sublocality") ||
+            component.types.includes("sublocality_level_1")
+        )?.long_name;
         setLocation({
           name: place.formatted_address || place.name,
           lat,
           lng,
           accuracy: "From search",
+          areaName: areaName
         });
         setError("");
       });
@@ -103,13 +102,20 @@ const LocationSearchInput = () => {
           //   return;
         }
 
-        const address = await getAddressFromLatLng(latitude, longitude);
-        console.log(address);
+        const data = await getAddressFromLatLng(latitude, longitude);
+        const address = data.results[0].formatted_address;
+        const areaName = data.results[0].address_components.find(
+          (component) =>
+            component.types.includes("sublocality") ||
+            component.types.includes("sublocality_level_1")
+        )?.long_name;
+        // console.log(address);
         setLocation({
           name: address,
           lat: latitude,
           lng: longitude,
           accuracy,
+          areaName: areaName
         });
 
         // setError("");
@@ -126,44 +132,94 @@ const LocationSearchInput = () => {
     );
   };
 
+ 
   return (
-    <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow-md ring-1 ring-gray-200">
-      <div className="relative flex items-center">
-        <input
-          type="text"
-          ref={inputRef}
-          placeholder="Search for a location"
-          className="flex-grow border border-gray-300 rounded-l-md px-4 py-3 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-        />
-        <button
-          onClick={getCurrentLocation}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-white rounded-r-md px-4 py-3 transition"
-          aria-label="Get current location"
-          title="Get current location"
-        >
-          <FaLocationDot className="text-xl text-red-400" />
-          <span className="font-medium">Get current location</span>
-        </button>
-      </div>
+    <div className=" bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+            Find Your Location
+          </h1>
+          <p className="text-gray-600">
+            Search for a place or use your current location
+          </p>
+        </div>
 
-      {error && (
-        <p className="mt-3 text-sm font-medium text-red-600 select-none">
-          {error}
-        </p>
-      )}
+        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 backdrop-blur-lg bg-opacity-90">
+          <div className="relative flex flex-col md:flex-row gap-4">
+            <div className="flex-grow relative">
+              <IoSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl" />
+              <input
+                type="text"
+                ref={inputRef}
+                placeholder="Search for a location..."
+                className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl 
+                text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-500 
+                transition-all duration-300 hover:border-gray-300"
+              />
+            </div>
+            <button
+              onClick={getCurrentLocation}
+              className="flex items-center justify-center gap-2 bg-gradient-to-r 
+              from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 
+              text-white rounded-xl px-6 py-4 transition-all duration-300 
+              transform hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg"
+            >
+              <FaLocationDot className="text-xl" />
+              <span className="font-medium">Current Location</span>
+            </button>
+          </div>
 
-      {location && (
-        <div className="mt-5 bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-inner">
-          <p className="text-lg font-semibold text-blue-900">{location.name}</p>
-          <p className="text-sm text-blue-800">Latitude: {location.lat}</p>
-          <p className="text-sm text-blue-800">Longitude: {location.lng}</p>
-          {location.accuracy && (
-            <p className="text-xs text-blue-600 mt-1">
-              Accuracy: {location.accuracy} meters
-            </p>
+          {error && (
+            <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl">
+              <p className="text-sm font-medium text-red-800">{error}</p>
+            </div>
+          )}
+
+          {location && (
+            <div className="mt-6 animate-fadeIn">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 
+                border border-blue-100 rounded-xl p-6 shadow-inner">
+                <div className="space-y-4">
+                  <div className="border-b border-blue-100 pb-4">
+                    <h2 className="text-sm font-medium text-blue-500 mb-2">
+                      LOCATION DETAILS
+                    </h2>
+                    <p className="text-xl font-semibold text-gray-800">
+                      {location.name}
+                    </p>
+                    {location.areaName && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Area: <span className="text-emerald-600 font-medium">{location.areaName}</span>
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Latitude</p>
+                      <p className="font-mono text-gray-800">{location.lat.toFixed(6)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Longitude</p>
+                      <p className="font-mono text-gray-800">{location.lng.toFixed(6)}</p>
+                    </div>
+                  </div>
+
+                  {location.accuracy && (
+                    <div className="pt-4 border-t border-blue-100">
+                      <p className="text-sm text-gray-500 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        Accuracy: {Math.round(location.accuracy)} meters
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

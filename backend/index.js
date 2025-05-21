@@ -11,7 +11,7 @@ app.use(bodyParser.json());
 
 app.use(
   cors({
-    origin: "https://todo-orpin-gamma.vercel.app",
+    origin: process.env.ORIGIN,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,

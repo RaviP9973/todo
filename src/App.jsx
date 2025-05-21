@@ -8,7 +8,7 @@ import InstallPrompt from "./components/InstallPrompt";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 // import { subscribeUser } from "./subscribe";
-import { usePushNotifications } from "./hooks/usePushNotifications";
+// import { usePushNotifications } from "./hooks/usePushNotifications";
 import Referral from "./pages/ReferalPage";
 import LocationSearchInput from "./pages/Location/LocationSearchInput";
 
@@ -19,7 +19,7 @@ export const ThemeContext = createContext({
 });
 
 const App = () => {
-  usePushNotifications();
+  // usePushNotifications();
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem("theme");
     return savedTheme || "light";
