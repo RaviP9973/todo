@@ -144,6 +144,60 @@ app.get('/reverse-geocode', async (req, res) => {
   }
 });
 
+app.get("/address-from-placeid", async (req, res) => {
+  const { placeId } = req.query;
+
+  if (!placeId) {
+    return res.status(400).json({ error: "Missing placeId parameter" });
+  }
+
+  try {
+    const googleRes = await axios.get(
+      `https://maps.googleapis.com/maps/api/place/details/json`,
+      {
+        params: {
+          place_id: placeId,
+          key: process.env.GOOGLE_MAPS_API_KEY,
+        },
+      }
+    );
+
+    const data = googleRes.data;
+    console.log("data",data);
+
+    if (data.status !== "OK") {
+      return res.status(400).json({ error: data.status });
+    }
+
+    const result = data.result;
+    const addressComponents = result.address_components;
+    const formattedAddress = result.formatted_address;
+    const location = result.geometry.location;
+
+    const getComponent = (types) =>
+      addressComponents.find((c) =>
+        types.every((t) => c.types.includes(t))
+      )?.long_name || "";
+
+    const city = getComponent(["locality"]);
+    const state = getComponent(["administrative_area_level_1"]);
+    const country = getComponent(["country"]);
+    const postalCode = getComponent(["postal_code"]);
+
+    res.json({
+      full_address: formattedAddress,
+      city,
+      state,
+      country,
+      postal_code: postalCode,
+      latitude: location.lat,
+      longitude: location.lng,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 app.listen(process.env.PORT || 4000, () =>
   console.log("Server running on port", process.env.PORT || 3000)
 );
