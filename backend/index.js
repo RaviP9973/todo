@@ -8,10 +8,18 @@ import axios from "axios";
 dotenv.config();
 const app = express();
 app.use(bodyParser.json());
+const allowedOrigins = process.env.ORIGIN?.split(",").map(origin => origin.trim());
+
 
 app.use(
   cors({
-    origin: process.env.ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
