@@ -1,15 +1,27 @@
 import express from "express";
 import bodyParser from "body-parser";
-import webpush from "web-push";
-import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import cors from "cors";
 import axios from "axios";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 dotenv.config();
 const app = express();
 app.use(bodyParser.json());
-const allowedOrigins = process.env.ORIGIN?.split(",").map(origin => origin.trim());
 
+// Initialize Razorpay instance (only if keys are provided)
+let razorpay = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+  console.log('Razorpay initialized successfully');
+} else {
+  console.warn('Razorpay keys not found. Payment endpoints will not work.');
+}
+
+const allowedOrigins = process.env.ORIGIN?.split(",").map(origin => origin.trim());
 
 app.use(
   cors({
@@ -25,93 +37,113 @@ app.use(
     credentials: true,
   })
 );
-// Load VAPID keys
-const { publicKey, privateKey } = JSON.parse(
-  process.env.VAPID_KEYS_JSON || "{}"
-);
-webpush.setVapidDetails("mailto:rp031776@gmail.com", publicKey, privateKey);
 
-// Supabase client
-// console.log(process.env.SUPABASE_SERVICE_ROLE_KEY);
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Razorpay endpoints
+// Create Razorpay order
+app.post('/api/create-order', async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(500).json({ error: 'Razorpay not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to environment variables.' });
+    }
+    console.log("inside the create order of backend");
 
-// console.log(supabase)
-// 1) Endpoint to receive and store subscription from the PWA
-app.post("/api/subscribe", async (req, res) => {
-  const { user_id, subscription } = req.body;
-  const {
-    endpoint,
-    keys: { p256dh, auth },
-  } = subscription;
-  console.log("I am able to reach here");
+    const { amount, currency = 'INR', receipt } = req.body;
 
-  await supabase
-    .from("push_subscriptions")
-    .insert({ user_id, endpoint, p256dh_key: p256dh, auth_key: auth });
+    if (!amount) {
+      return res.status(400).json({ error: 'Amount is required' });
+    }
 
-  
-  res.send({ success: true });
+    const options = {
+      amount: Math.round(amount * 100), // Convert to paise
+      currency,
+      receipt: receipt || `receipt_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    console.log("order created");
+    res.json({
+      id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      receipt: order.receipt,
+    });
+  } catch (error) {
+    console.error('Error creating Razorpay order:', error);
+    res.status(500).json({ error: 'Failed to create order' });
+  }
 });
 
-// 2) Webhook called by Supabase trigger
-// ...existing code...
-app.post("/webhook/task-created", async (req, res) => {
-  console.log("Webhook triggered");
-  const { id: todoId, user_id, title, description } = req.body;
-
-  const payload = JSON.stringify({
-    title: "New Task Created!",
-    body: title,
-    data: { todoId },
-  });
-
+// Verify Razorpay payment
+app.post('/api/verify-payment', async (req, res) => {
   try {
-    // Fetch the subscription from your database
-    const { data: subs, error } = await supabase
-      .from("push_subscriptions")
-      .select("*")
-      .eq("user_id", user_id);
-
-    if (error) {
-      console.error("Error fetching subscriptions:", error);
-      return res.status(500).json({ error: "Failed to fetch subscriptions" });
+    if (!razorpay) {
+      return res.status(500).json({ error: 'Razorpay not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to environment variables.' });
     }
 
-    if (!subs || subs.length === 0) {
-      console.log("No subscriptions found for user:", user_id);
-      return res.json({ delivered: 0 });
+    console.log("inside the verify payment of backend");
+    console.log("req ka body", req.body);
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: 'Missing required payment parameters' });
     }
 
-    // Send notifications to all subscriptions
-    const results = await Promise.all(
-      subs.map(async (sub) => {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: {
-                p256dh: sub.p256dh_key,
-                auth: sub.auth_key
-              }
-            },
-            payload
-          );
-          return true;
-        } catch (error) {
-          console.error("Error sending notification:", error);
-          return false;
-        }
-      })
-    );
+    // Create signature for verification
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest('hex');
 
-    const deliveredCount = results.filter(Boolean).length;
-    res.json({ delivered: deliveredCount });
+    console.log("expectedSignature", expectedSignature);
+    console.log("razorpay_signature", razorpay_signature);
+    const isAuthentic = expectedSignature === razorpay_signature;
+
+    if (isAuthentic) {
+      // Fetch payment details from Razorpay to get additional info
+      const payment = await razorpay.payments.fetch(razorpay_payment_id);
+      
+      console.log("payment", payment);
+      res.json({
+        success: true,
+        payment_id: razorpay_payment_id,
+        order_id: razorpay_order_id,
+        signature: razorpay_signature,
+        payment_status: payment.status,
+        amount: payment.amount / 100, // Convert back to rupees
+      });
+    } else {
+      res.status(400).json({ 
+        success: false, 
+        error: 'Invalid payment signature' 
+      });
+    }
   } catch (error) {
-    console.error("Error in webhook:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Error verifying payment:', error);
+    res.status(500).json({ error: 'Payment verification failed' });
+  }
+});
+
+// Get payment status
+app.get('/api/payment-status/:payment_id', async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(500).json({ error: 'Razorpay not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to environment variables.' });
+    }
+
+    const { payment_id } = req.params;
+    const payment = await razorpay.payments.fetch(payment_id);
+    
+    res.json({
+      payment_id: payment.id,
+      status: payment.status,
+      amount: payment.amount / 100,
+      currency: payment.currency,
+      method: payment.method,
+      created_at: payment.created_at,
+    });
+  } catch (error) {
+    console.error('Error fetching payment status:', error);
+    res.status(500).json({ error: 'Failed to fetch payment status' });
   }
 });
 
@@ -131,6 +163,7 @@ app.get('/reverse-geocode', async (req, res) => {
       }
     );
 
+    // console.log("response",response.data)
     res.json(response.data);
 
   } catch (error) {
@@ -171,7 +204,7 @@ app.get("/address-from-placeid", async (req, res) => {
     );
 
     const data = googleRes.data;
-    console.log("data",data);
+    // console.log("data",data);
 
     if (data.status !== "OK") {
       return res.status(400).json({ error: data.status });
@@ -197,7 +230,7 @@ app.get("/address-from-placeid", async (req, res) => {
       city,
       state,
       country,
-      postal_code: postalCode,
+      pincode: postalCode,
       latitude: location.lat,
       longitude: location.lng,
     });
@@ -206,6 +239,7 @@ app.get("/address-from-placeid", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 app.listen(process.env.PORT || 4000, () =>
   console.log("Server running on port", process.env.PORT || 3000)
 );
