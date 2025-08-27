@@ -10,13 +10,17 @@ export const initilisePayment =async (req, res) => {
 
   try {
     const { amount, currency = 'INR', orderPayload } = req.body;
+    const {user} = req;
 
-    if(!orderPayload) {
+    if (!orderPayload) {
       return res.status(400).json({ error: 'Order payload is required.' });
     }
 
-    // const amount = calculateServerSideAmount(orderPayload);
-
+    console.log("user in initiate order",user);
+    console.log("orderPayload in initiate order",orderPayload);
+    if(user?.id !== orderPayload?.p_user_id) {
+      return res.status(403).json({ error: 'User is not authorized to initiate this order.' });
+    }
     if (!amount || amount < 49) {
       return res.status(400).json({ error: 'Amount is required and must be at least ₹49.' });
     }
@@ -54,6 +58,8 @@ export const initilisePayment =async (req, res) => {
     res.status(500).json({ error: 'Failed to initiate order.' });
   }
 }
+
+
 export const finalisePayment = async (req, res) => {
   try {
     const {
@@ -64,7 +70,7 @@ export const finalisePayment = async (req, res) => {
       token
     } = req.body;
 
-    console.log("order payload", orderPayload);
+    const {user} = req;
     const paymentType = orderPayload?.p_payment_type;
 
     // STEP A: VERIFY SIGNATURE (only for online payments)
@@ -82,6 +88,10 @@ export const finalisePayment = async (req, res) => {
         decodedToken = jwt.verify(token, process.env.JWT_SECRET);
       } catch (err) {
         return res.status(401).json({ message: 'Invalid or expired payment token.' });
+      }
+
+      if(orderPayload?.p_user_id !== user?.id) {
+        return res.status(403).json({ message: 'User is not authorized to finalize this payment.' });
       }
 
       if (decodedToken.razorpay_order_id !== razorpay_order_id) {
@@ -102,6 +112,23 @@ export const finalisePayment = async (req, res) => {
         return res.status(400).json({ message: 'Invalid payment signature.' });
       }
       console.log('✅ Payment signature verified successfully.');
+
+       const payment = await razorpay.payments.fetch(razorpay_payment_id);
+
+       console.log("payment", payment);
+      if (!payment) {
+        return res.status(404).json({ message: "Payment not found on Razorpay." });
+      }
+
+      if (payment.order_id !== razorpay_order_id) {
+        return res.status(400).json({ message: "Payment does not belong to the given order." });
+      }
+
+      if (payment.status !== "captured") {
+        return res.status(400).json({ message: `Payment is not captured. Current status: ${payment.status}` });
+      }
+
+
     }
 
     // STEP B: PREPARE AND CALL THE SECURE RPC FUNCTION
