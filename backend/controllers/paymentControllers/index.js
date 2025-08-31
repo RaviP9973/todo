@@ -2,6 +2,7 @@ import { razorpay } from "../../config/razorpay.js";
 import { supabase } from "../../config/supbase.js";
 import crypto from "crypto";
 import jwt from 'jsonwebtoken';
+import { decreaseWalletBalance } from "../walletControllers/walletController.js";
 
 export const initilisePayment =async (req, res) => {
   if (!razorpay) {
@@ -131,7 +132,55 @@ export const finalisePayment = async (req, res) => {
 
     }
 
-    // STEP B: PREPARE AND CALL THE SECURE RPC FUNCTION
+    // STEP B: DECREASE WALLET BALANCE (if wallet is used)
+    if (orderPayload.p_wallet_used && orderPayload.p_wallet_used > 0) {
+      try {
+        console.log('💰 Decreasing wallet balance by:', orderPayload.p_wallet_used);
+        
+        // Create a mock request and response object for the wallet controller
+        const walletReq = {
+          body: {
+            amount: orderPayload.p_wallet_used,
+            order_id: orderPayload.p_order_id,
+            type: 'debit',
+            description: 'Order payment deduction'
+          },
+          user: user
+        };
+        
+        // Create a promise to handle the wallet decrease
+        const walletPromise = new Promise((resolve, reject) => {
+          const mockRes = {
+            status: (code) => ({
+              json: (data) => {
+                if (code === 200) {
+                  console.log('✅ Wallet balance decreased successfully:', data);
+                  resolve(data);
+                } else {
+                  console.error('❌ Wallet decrease failed:', data);
+                  reject(new Error(data.message || 'Wallet decrease failed'));
+                }
+              }
+            })
+          };
+          
+          // Call the wallet controller
+          decreaseWalletBalance(walletReq, mockRes);
+        });
+        
+        // Wait for wallet decrease to complete
+        await walletPromise;
+        
+      } catch (walletError) {
+        console.error('❌ Error decreasing wallet balance:', walletError);
+        return res.status(400).json({ 
+          message: 'Failed to deduct wallet balance', 
+          error: walletError.message 
+        });
+      }
+    }
+
+    // STEP C: PREPARE AND CALL THE SECURE RPC FUNCTION
     const rpcParams = {
       ...orderPayload,
       // Use the verified payment ID for online, or 'cod' for cash
@@ -142,7 +191,7 @@ export const finalisePayment = async (req, res) => {
     // const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const { data, error } = await supabase.rpc("handle_place_order_test", rpcParams);
 
-    // STEP C: HANDLE POSTGRES-LEVEL ERRORS (e.g., connection issue, RLS violation)
+    // STEP D: HANDLE POSTGRES-LEVEL ERRORS (e.g., connection issue, RLS violation)
     if (error) {
       console.error('❌ Supabase RPC Error:', error);
       try {
@@ -155,7 +204,7 @@ export const finalisePayment = async (req, res) => {
       }
     }
 
-    // STEP D: HANDLE BUSINESS LOGIC RESPONSES FROM THE FUNCTION
+    // STEP E: HANDLE BUSINESS LOGIC RESPONSES FROM THE FUNCTION
     if (data) {
       console.log("RPC Data:", data);
       // Use a switch to handle all possible statuses returned by the RPC function
