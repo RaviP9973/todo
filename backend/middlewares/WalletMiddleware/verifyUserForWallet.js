@@ -29,7 +29,7 @@ export const verifyUserForWallet = async (req, res, next) => {
       return res.status(403).json({ error: "User is blocked" });
     }
 
-    if(userData.role === 'Admin') {
+    if(req.body.cancel) {
       req.user = { id: req.body.user_id };
     }else{
       req.user = data.user;

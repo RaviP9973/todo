@@ -10,9 +10,12 @@ export const updateWalletBalance = async (req, res) => {
       referral,
       referralCode,
       cancel = false,
+      review = false,
     } = req.body;
 
     const { user } = req;
+
+    if(!user) return res.status(401).json({ message: "Unauthorized" });
 
     if (!amount || typeof amount !== "number") {
       return res.status(400).json({ message: "Invalid amount" });
@@ -63,6 +66,19 @@ export const updateWalletBalance = async (req, res) => {
       }
     }
 
+    if(review) {
+      
+        const { data, error } = await supabase
+          .from('user_reviews')
+          .select('id')
+          .eq('user_id', user.id);
+        if (error) return res.status(400).json({ message: "Error fetching user reviews" });
+        if (data.length < 1) return res.status(400).json({ message: "User has not reviewed the app" });
+
+        if(data.length > 1){
+          return res.status(400).json({ message: "User has already reviewed the app" });
+        }
+    }
     // Call Postgres function
     const { data, error } = await supabase.rpc("increase_wallet_balance", {
       p_user_id: user.id,
