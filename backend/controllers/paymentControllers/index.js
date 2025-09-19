@@ -17,8 +17,6 @@ export const initilisePayment =async (req, res) => {
       return res.status(400).json({ error: 'Order payload is required.' });
     }
 
-    console.log("user in initiate order",user);
-    console.log("orderPayload in initiate order",orderPayload);
     if(user?.id !== orderPayload?.p_user_id) {
       return res.status(403).json({ error: 'User is not authorized to initiate this order.' });
     }
@@ -34,13 +32,16 @@ export const initilisePayment =async (req, res) => {
     };
 
     const order = await razorpay.orders.create(options);
-
-    const payloadHash = crypto.createHash('sha256').update(JSON.stringify(orderPayload)).digest('hex');
+    // added security by hashing the order payload and signing it with JWT
+    // so that user cannot temper with the orderPayload object
+    // we will verify this hash and token in the finalise payment api
+    const payloadHash = crypto.createHash('sha256',process.env.RAZORPAY_KEY_SECRET).update(JSON.stringify(orderPayload)).digest('hex');
 
     const paymentToken = jwt.sign(
         { 
             hash: payloadHash, 
-            razorpay_order_id: order.id 
+            razorpay_order_id: order.id,
+            user_id: user?.id
         }, 
         process.env.JWT_SECRET, 
         { expiresIn: '15m' }
@@ -91,7 +92,8 @@ export const finalisePayment = async (req, res) => {
         return res.status(401).json({ message: 'Invalid or expired payment token.' });
       }
 
-      if(orderPayload?.p_user_id !== user?.id) {
+      console.log("decoded token", decodedToken);
+      if(orderPayload?.p_user_id !== user?.id && decodedToken.user_id !== user?.id && orderPayload?.p_user_id !== decodedToken.user_id) {
         return res.status(403).json({ message: 'User is not authorized to finalize this payment.' });
       }
 
@@ -99,7 +101,7 @@ export const finalisePayment = async (req, res) => {
           return res.status(400).json({ message: 'Token and order ID mismatch.' });
       }
 
-      const receivedPayloadHash = crypto.createHash('sha256').update(JSON.stringify(orderPayload)).digest('hex');
+      const receivedPayloadHash = crypto.createHash('sha256',process.env.RAZORPAY_KEY_SECRET).update(JSON.stringify(orderPayload)).digest('hex');
       if (decodedToken.hash !== receivedPayloadHash) {
           return res.status(400).json({ message: 'Order details have been tampered with. Verification failed.' });
       }
@@ -116,7 +118,6 @@ export const finalisePayment = async (req, res) => {
 
        const payment = await razorpay.payments.fetch(razorpay_payment_id);
 
-       console.log("payment", payment);
       if (!payment) {
         return res.status(404).json({ message: "Payment not found on Razorpay." });
       }
@@ -125,6 +126,10 @@ export const finalisePayment = async (req, res) => {
         return res.status(400).json({ message: "Payment does not belong to the given order." });
       }
 
+      
+      if(payment.amount !== Math.round((orderPayload.p_item_total + orderPayload.p_tax_collected + orderPayload.p_delivery_fee + orderPayload.p_platform_fee - orderPayload.p_wallet_used) * 100)) {
+        return res.status(400).json({ message: `Payment amount mismatch. Expected ₹${orderPayload.p_total_amount}, but got ₹${(payment.amount / 100).toFixed(2)}` });
+      }
       if (payment.status !== "captured") {
         return res.status(400).json({ message: `Payment is not captured. Current status: ${payment.status}` });
       }
@@ -134,9 +139,7 @@ export const finalisePayment = async (req, res) => {
 
     // STEP B: DECREASE WALLET BALANCE (if wallet is used)
     if (orderPayload.p_wallet_used && orderPayload.p_wallet_used > 0) {
-      try {
-        console.log('💰 Decreasing wallet balance by:', orderPayload.p_wallet_used);
-        
+      try {        
         // Create a mock request and response object for the wallet controller
         const walletReq = {
           body: {

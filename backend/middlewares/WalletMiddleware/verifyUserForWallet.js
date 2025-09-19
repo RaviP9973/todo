@@ -28,9 +28,12 @@ export const verifyUserForWallet = async (req, res, next) => {
     if (userData.blocked) {
       return res.status(403).json({ error: "User is blocked" });
     }
-
-    if(req.body.cancel) {
+//changee: user agr admin hue to uska alg check krna h 
+// changee: agr cancel ka request user admin ni h to exception trhow krna h 
+    if(userData?.role === "Admin" && req.body.cancel) {
       req.user = { id: req.body.user_id };
+    }else if(userData?.role !== "Admin" && req.body.cancel) {
+      return res.status(403).json({ error: "User is not authorized to cancel this order." });
     }else{
       req.user = data.user;
     }

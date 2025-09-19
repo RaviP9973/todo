@@ -29,6 +29,8 @@ export const verifyUser = async (req, res, next) => {
 
   if (data?.user?.id === req?.body?.orderPayload?.p_user_id) {
     req.user = data.user;
+  }else{
+    return res.status(403).json({ error: "User ID mismatch" });
   }
   next();
 };
